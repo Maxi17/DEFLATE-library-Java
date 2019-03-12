@@ -54,7 +54,7 @@ public final class DeflaterOutputStream extends FilterOutputStream {
 	
 	@SuppressWarnings("cast") // There are 2 castings in this method:
 	// The first one is redundant, because Math.min takes as arguments two certainly not negative arguments, so the
-	// result can't be negative. We made sure len is non-negative and index is lwys smaller than length of buffer
+	// result can't be negative. We made sure len is non-negative and index is always smaller than length of buffer
 	// The second cast is because of a false positive of the checker. The method System.arrayCopy provided useful
 	// documentation that helped me calculate the correct offsets for b and buffer arrays, such that chunk variable
 	// always stays within correct bounds.
