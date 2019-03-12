@@ -6,19 +6,16 @@
  * https://github.com/nayuki/DEFLATE-library-Java
  */
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import io.nayuki.deflate.InflaterInputStream;
+import io.nayuki.deflate.MarkableFileInputStream;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.IndexOrLow;
+import org.checkerframework.checker.index.qual.NonNegative;
+
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.zip.CRC32;
-import io.nayuki.deflate.InflaterInputStream;
-import io.nayuki.deflate.MarkableFileInputStream;
 
 
 /**
@@ -37,8 +34,11 @@ public final class gunzip {
 		}
 	}
 	
-	
+	@SuppressWarnings("cast") // Casting hexadecimal value 0x8B to a byte was a warning here. I don't think why
+	// the checker issued a warning, as it really is 8-bits long (100010111)
 	// Returns null if successful, otherwise returns an error message string.
+	// There was another warning below, the cast of the return type of read method from FilterInputStream to
+	// an index of the argument, which is redundant. The warnings were false positives.
 	private static String submain(String[] args) {
 		// Check arguments
 		if (args.length != 2)
@@ -110,7 +110,7 @@ public final class gunzip {
 					System.err.println("Flag: Text");
 				if ((flags & 0x04) != 0) {
 					System.err.println("Flag: Extra");
-					int len = readLittleEndianUint16(din);
+					@NonNegative int len = readLittleEndianUint16(din); //the length can't be negative
 					din.readFully(new byte[len]);  // Skip extra data
 				}
 				if ((flags & 0x08) != 0)
@@ -133,7 +133,10 @@ public final class gunzip {
 				byte[] buf = new byte[64 * 1024];
 				long startTime = System.nanoTime();
 				while (true) {
-					int n = iin.read(buf);
+					@IndexOrLow("buf") int n = (@IndexOrLow("buf") int) iin.read(buf);
+					// n should be within buf range because we use it to access te array. It can also be -1, end of file
+					// Another warning issued here for not casting iin.read(buf), but it is totally safe as read method
+					// from FilterInputStream returns a number less than the parameter and greater or equal to -1
 					if (n == -1)
 						break;
 					lcout.write(buf, 0, n);
@@ -173,12 +176,14 @@ public final class gunzip {
 		return new String(bout.toByteArray(), StandardCharsets.UTF_8);
 	}
 	
-	
-	private static int readLittleEndianUint16(DataInput in) throws IOException {
-		return Integer.reverseBytes(in.readUnsignedShort()) >>> 16;
+	@SuppressWarnings("cast") // The cst is safe because short range is 16 bits and we shift the result by 16 bits,
+	// making the result non-negative if it happens to be negative.
+	private static @NonNegative int readLittleEndianUint16(DataInput in) throws IOException {
+		// This return statement is used in the previous method as an index, so it has to be non-negative.
+		// The number is not negative because we shift the bits by 16 positions, and short range is exactly 16 bits
+		return (@NonNegative int) (Integer.reverseBytes(in.readUnsignedShort()) >>> 16);
 	}
-	
-	
+
 	private static int readLittleEndianInt32(DataInput in) throws IOException {
 		return Integer.reverseBytes(in.readInt());
 	}
@@ -187,7 +192,8 @@ public final class gunzip {
 	
 	private static final class LengthCrc32OutputStream extends FilterOutputStream {
 		
-		private long length;  // Total number of bytes written, modulo 2^64
+		private @NonNegative long length;  // Total number of bytes written, modulo 2^64
+		// The length can't be below 0
 		private CRC32 checksum;
 		
 		
@@ -205,14 +211,16 @@ public final class gunzip {
 		}
 		
 		
-		public void write(byte[] b, int off, int len) throws IOException {
+		public void write(byte[] b, @IndexOrHigh("#1") int off, @IndexOrHigh("#1") int len) throws IOException {
+			// The offset and the length should be within b range. According to write() in OutputStream and update()
+			// in CRC32 class documentation, the offset and the length can be equal to the length of the b array.
 			out.write(b, off, len);
 			length += len;
 			checksum.update(b, off, len);
 		}
 		
 		
-		public long getLength() {
+		public @NonNegative long getLength() { // Length makes sense only when non-negative
 			return length;
 		}
 		
