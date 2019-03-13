@@ -34,7 +34,7 @@ public final class gunzip {
 		}
 	}
 	
-	@SuppressWarnings("cast") // Casting hexadecimal value 0x8B to a byte was a warning here. I don't think why
+	@SuppressWarnings("cast") // Casting hexadecimal value 0x8B to a byte was a warning here. I don't know why
 	// the checker issued a warning, as it really is 8-bits long (100010111)
 	// Returns null if successful, otherwise returns an error message string.
 	// There was another warning below, the cast of the return type of read method from FilterInputStream to
@@ -110,7 +110,7 @@ public final class gunzip {
 					System.err.println("Flag: Text");
 				if ((flags & 0x04) != 0) {
 					System.err.println("Flag: Extra");
-					@NonNegative int len = readLittleEndianUint16(din); //the length can't be negative
+					@NonNegative int len = readLittleEndianUint16(din); // The length can't be negative
 					din.readFully(new byte[len]);  // Skip extra data
 				}
 				if ((flags & 0x08) != 0)
@@ -176,7 +176,7 @@ public final class gunzip {
 		return new String(bout.toByteArray(), StandardCharsets.UTF_8);
 	}
 	
-	@SuppressWarnings("cast") // The cst is safe because short range is 16 bits and we shift the result by 16 bits,
+	@SuppressWarnings("cast") // The cast is safe because short range is 16 bits and we shift the result by 16 bits,
 	// making the result non-negative if it happens to be negative.
 	private static @NonNegative int readLittleEndianUint16(DataInput in) throws IOException {
 		// This return statement is used in the previous method as an index, so it has to be non-negative.

@@ -27,7 +27,7 @@ import java.io.OutputStream;
 public final class DeflaterOutputStream extends FilterOutputStream {
 	
 	private byte @MinLen(6) [] buffer; // Index starts off as 5, so buffer has to be at lest of size 6
-	private @IndexFor("this.buffer") int index; // The index should be aa valid index within buffer range
+	private @IndexFor("this.buffer") int index; // The index should be a valid index within buffer range
 	private boolean isFinished;
 
 
