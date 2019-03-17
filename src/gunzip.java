@@ -6,16 +6,24 @@
  * https://github.com/nayuki/DEFLATE-library-Java
  */
 
-import io.nayuki.deflate.InflaterInputStream;
-import io.nayuki.deflate.MarkableFileInputStream;
-import org.checkerframework.checker.index.qual.IndexOrHigh;
-import org.checkerframework.checker.index.qual.IndexOrLow;
-import org.checkerframework.checker.index.qual.NonNegative;
-
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.zip.CRC32;
+import io.nayuki.deflate.InflaterInputStream;
+import io.nayuki.deflate.MarkableFileInputStream;
+
+import org.checkerframework.checker.index.qual.GTENegativeOne;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.LTEqLengthOf;
+import org.checkerframework.checker.index.qual.NonNegative;
 
 
 /**
@@ -37,8 +45,6 @@ public final class gunzip {
 	@SuppressWarnings("cast") // Casting hexadecimal value 0x8B to a byte was a warning here. I don't know why
 	// the checker issued a warning, as it really is 8-bits long (100010111)
 	// Returns null if successful, otherwise returns an error message string.
-	// There was another warning below, the cast of the return type of read method from FilterInputStream to
-	// an index of the argument, which is redundant. The warnings were false positives.
 	private static String submain(String[] args) {
 		// Check arguments
 		if (args.length != 2)
@@ -110,7 +116,7 @@ public final class gunzip {
 					System.err.println("Flag: Text");
 				if ((flags & 0x04) != 0) {
 					System.err.println("Flag: Extra");
-					@NonNegative int len = readLittleEndianUint16(din); // The length can't be negative
+					@NonNegative int len = readLittleEndianUint16(din);
 					din.readFully(new byte[len]);  // Skip extra data
 				}
 				if ((flags & 0x08) != 0)
@@ -133,10 +139,9 @@ public final class gunzip {
 				byte[] buf = new byte[64 * 1024];
 				long startTime = System.nanoTime();
 				while (true) {
-					@IndexOrLow("buf") int n = (@IndexOrLow("buf") int) iin.read(buf);
+					@GTENegativeOne @LTEqLengthOf("buf") int n = iin.read(buf);
 					// n should be within buf range because we use it to access te array. It can also be -1, end of file
-					// Another warning issued here for not casting iin.read(buf), but it is totally safe as read method
-					// from FilterInputStream returns a number less than the parameter and greater or equal to -1
+					// or equal to the length of buf, as write method called below wouldn't cause  crash
 					if (n == -1)
 						break;
 					lcout.write(buf, 0, n);
@@ -187,13 +192,12 @@ public final class gunzip {
 	private static int readLittleEndianInt32(DataInput in) throws IOException {
 		return Integer.reverseBytes(in.readInt());
 	}
-	
-	
+
+
 	
 	private static final class LengthCrc32OutputStream extends FilterOutputStream {
 		
 		private @NonNegative long length;  // Total number of bytes written, modulo 2^64
-		// The length can't be below 0
 		private CRC32 checksum;
 		
 		
@@ -220,7 +224,7 @@ public final class gunzip {
 		}
 		
 		
-		public @NonNegative long getLength() { // Length makes sense only when non-negative
+		public @NonNegative long getLength() {
 			return length;
 		}
 		

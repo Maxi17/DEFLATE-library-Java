@@ -8,13 +8,16 @@
 
 package io.nayuki.deflate;
 
-import org.checkerframework.checker.index.qual.*;
-import org.checkerframework.common.value.qual.MinLen;
-
 import java.io.BufferedOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+
+import org.checkerframework.checker.index.qual.IndexFor;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.LTLengthOf;
+import org.checkerframework.checker.index.qual.NonNegative;
+import org.checkerframework.common.value.qual.MinLen;
 
 
 /**
@@ -27,7 +30,7 @@ import java.io.OutputStream;
 public final class DeflaterOutputStream extends FilterOutputStream {
 	
 	private byte @MinLen(6) [] buffer; // Index starts off as 5, so buffer has to be at lest of size 6
-	private @IndexFor("this.buffer") int index; // The index should be a valid index within buffer range
+	private @IndexOrHigh("this.buffer") int index; // The index should be within buffer range or equal to its size
 	private boolean isFinished;
 
 
@@ -42,14 +45,15 @@ public final class DeflaterOutputStream extends FilterOutputStream {
 	@SuppressWarnings("cast") // The casting below is safe because if index becomes equal to the size of the input array
 	// and we want to write another character, we check if index is equal to the length of buffer and reset it if so
 	// by calling writeBuffer() method. It is safe to assume that each time index is incremented by one in this method,
-	// it would remain within buffer bounds.
+	// it remains a correct index.
 	public void write(int b) throws IOException {
 		if (isFinished)
 			throw new IllegalStateException();
 		if (index == buffer.length)
 			writeBuffer(false);
-		buffer[index] = (byte) b;
-		index = (@IndexFor("this.buffer") int) (index + 1); // Explained above why this is safe
+		buffer[(@IndexFor("this.buffer") int) index] = (byte) b; // The index can't get here being equal to buffer.length
+		// as the if statement above makes sure to reset it to 5 if it is.
+		index = (@IndexOrHigh("this.buffer") int) (index + 1); // Explained above why this is safe
 	}
 	
 	@SuppressWarnings("cast") // There are 2 castings in this method:
@@ -77,8 +81,7 @@ public final class DeflaterOutputStream extends FilterOutputStream {
 			System.arraycopy(b, off, buffer, index, chunk);
 			off += chunk;
 			len -= chunk;
-			index = (@IndexFor("buffer") int) (index + chunk); // If we add chunk to index it stays within buffer bounds
-			// as chunk was correctly verified before. This casting is redundant, but the checker issued a warning.
+			index = index + chunk;
 		}
 	}
 	
