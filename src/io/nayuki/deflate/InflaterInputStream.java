@@ -8,6 +8,15 @@
 
 package io.nayuki.deflate;
 
+import org.checkerframework.checker.index.qual.GTENegativeOne;
+import org.checkerframework.checker.index.qual.IndexFor;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.LTEqLengthOf;
+import org.checkerframework.checker.index.qual.LTLengthOf;
+import org.checkerframework.checker.index.qual.NonNegative;
+import org.checkerframework.checker.index.qual.Positive;
+import org.checkerframework.common.value.qual.IntRange;
+
 import java.io.EOFException;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -27,21 +36,21 @@ public final class InflaterInputStream extends FilterInputStream {
 	
 	// Buffer of bytes read from in.read() (the underlying input stream)
 	private byte[] inputBuffer;     // Can have any positive length (but longer means less overhead)
-	private int inputBufferLength;  // Number of valid prefix bytes, at least 0
-	private int inputBufferIndex;   // Index of next byte to consume
+	private @NonNegative int inputBufferLength;  // Number of valid prefix bytes, at least 0
+	private @IndexFor("this.inputBuffer") int inputBufferIndex;   // Index of next byte to consume
 	
 	// Buffer of bits packed from the bytes in 'inputBuffer'
-	private long inputBitBuffer;       // 0 <= value < 2^inputBitBufferLength
-	private int inputBitBufferLength;  // Always in the range [0, 63]
+	private @NonNegative long inputBitBuffer;       // 0 <= value < 2^inputBitBufferLength
+	private @IntRange(from = 0, to = 63) int inputBitBufferLength;  // Always in the range [0, 63]
 	
 	// Queued bytes to yield first when this.read() is called
 	private byte[] outputBuffer;     // Should have length 257 (but pointless if longer)
-	private int outputBufferLength;  // Number of valid prefix bytes, at least 0
-	private int outputBufferIndex;   // Index of next byte to produce, in the range [0, outputBufferLength]
+	private @NonNegative int outputBufferLength;  // Number of valid prefix bytes, at least 0
+	private @NonNegative int outputBufferIndex;   // Index of next byte to produce, in the range [0, outputBufferLength]
 	
 	// Buffer of last 32 KiB of decoded data, for LZ77 decompression
 	private byte[] dictionary;
-	private int dictionaryIndex;
+	private @IndexFor("this.dictionary") int dictionaryIndex;
 	
 	// Generally speaking, the overall data flow of this decompressor looks like this:
 	//   in (the underlying input stream, declared in the superclass) -> in.read()
@@ -114,7 +123,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	 * @throws IllegalArgumentException if {@code inBufLen < 1}
 	 * @throws IllegalArgumentException if {@code detach == true} but {@code in.markSupported() == false}
 	 */
-	public InflaterInputStream(InputStream in, boolean detachable, int inBufLen) {
+	public InflaterInputStream(InputStream in, boolean detachable, @Positive int inBufLen) {
 		// Handle the input stream and detachability
 		super(in);
 		if (inBufLen <= 0)
@@ -162,7 +171,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	 * stream was encountered at an unexpected position, or the compressed data has a format error
 	 * @throws IllegalStateException if the stream has already been closed
 	 */
-	public int read() throws IOException {
+	public @GTENegativeOne int read() throws IOException {
 		// In theory this method for reading a single byte could be implemented somewhat faster.
 		// We could take the logic of read(byte[],int,int) and simplify it for the special case
 		// of handling one byte. But if the caller chose to use this read() method instead of
@@ -195,7 +204,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	 * stream was encountered at an unexpected position, or the compressed data has a format error
 	 * @throws IllegalStateException if the stream has already been closed
 	 */
-	public int read(byte[] b, int off, int len) throws IOException {
+	public @GTENegativeOne @LTEqLengthOf("#1") int read(byte[] b, @IndexOrHigh("#1") int off, @NonNegative @LTLengthOf(value = "#1", offset = "#2 - 1") int len) throws IOException {
 		// Check arguments and state
 		Objects.requireNonNull(b);
 		if (off < 0 || off > b.length || len < 0 || b.length - off < len)
@@ -214,7 +223,9 @@ public final class InflaterInputStream extends FilterInputStream {
 		
 		// First move bytes (if any) from the output buffer
 		if (outputBufferLength > 0) {
-			int n = Math.min(outputBufferLength - outputBufferIndex, len);
+			@SuppressWarnings("index") // The checker issued an incompatible types error here. But the code is safe, because variable 'n' can take either the first value,
+			// which would be valid because of the annotation used for 'n', or the second value, which would be valid because 'len' was annotated similarly.
+			@NonNegative @LTLengthOf(value = {"this.outputBuffer", "#1"}, offset = {"this.outputBufferIndex - 1", "#2 - 1"}) int n = Math.min(outputBufferLength - outputBufferIndex, len);
 			System.arraycopy(outputBuffer, outputBufferIndex, b, off, n);
 			result = n;
 			outputBufferIndex += n;
@@ -844,7 +855,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Reads exactly 'len' bytes from {the input buffers or underlying input stream} into the
 	// given array subrange. This method alters the input buffer states, may throw an IOException,
 	// and would destroy the decompressor state if EOF occurs before the read length is satisfied.
-	private void readBytes(byte[] b, int off, int len) throws IOException {
+	private void readBytes(byte[] b, @IndexOrHigh("#1") int off, @NonNegative @LTLengthOf(value = "#1",offset = "#2 - 1") int len) throws IOException {
 		// Check bit buffer invariants
 		if (inputBitBufferLength < 0 || inputBitBufferLength > 63
 				|| inputBitBuffer >>> inputBitBufferLength != 0)
@@ -871,7 +882,7 @@ public final class InflaterInputStream extends FilterInputStream {
 		// Read directly from input stream (without putting into input buffer)
 		while (len > 0) {
 			assert inputBufferIndex == inputBufferLength;
-			int n = in.read(b, off, len);
+			@GTENegativeOne @LTEqLengthOf("#1") int n = in.read(b, off, len);
 			if (n == -1)
 				destroyAndThrow(new EOFException("Unexpected end of stream"));
 			off += n;
@@ -883,6 +894,8 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Fills the input byte buffer with new data read from the underlying input stream.
 	// Requires the buffer to be fully consumed before being called. This method sets
 	// inputBufferLength to a value in the range [-1, inputBuffer.length] and inputBufferIndex to 0.
+	@SuppressWarnings("index") // the assignment 'inputBufferIndex = 0' issued a warning. It is safe because inputBuffer will have
+	// at least one element, as we are reading input one line before. If we reached end of file, an exception is thrown anyways.
 	private void fillInputBuffer() throws IOException {
 		if (state < -1)
 			throw new AssertionError("Must not read in this state");
@@ -901,6 +914,8 @@ public final class InflaterInputStream extends FilterInputStream {
 	
 	
 	// Discards the remaining bits (0 to 7) in the current byte being read, if any. Always succeeds.
+	@SuppressWarnings("compound") // The checker issued a warning here because it can't statically check the value of 'discard'.
+	// the code is safe because when we discard the last 0-7 bits, we know that inputBitBufferLength had at lease that value.
 	private void alignInputToByte() {
 		int discard = inputBitBufferLength & 7;
 		inputBitBuffer >>>= discard;
@@ -924,6 +939,8 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Clears all state variables except {in, state, exception}, to prevent accidental use of the
 	// stream thereafter. It is illegal to call read() or detach() after this method is called.
 	// The caller is responsible for manipulating the other state variables appropriately.
+	@SuppressWarnings("index") // Since inputBufferIndex and outputBufferIndex contain the value of the next byte to consume,
+	// when the buffer is empty, the next one to consume becomes the first element, at index 0.
 	private void destroyState() {
 		isLastBlock = true;
 		literalLengthCodeTree = null;
