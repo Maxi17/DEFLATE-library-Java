@@ -8,16 +8,23 @@
 
 package io.nayuki.deflate;
 
-import org.checkerframework.checker.index.qual.*;
-import org.checkerframework.common.value.qual.IntRange;
-import org.checkerframework.common.value.qual.MinLen;
-
 import java.io.EOFException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Objects;
+
+import org.checkerframework.checker.index.qual.GTENegativeOne;
+import org.checkerframework.checker.index.qual.IndexFor;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.LTEqLengthOf;
+import org.checkerframework.checker.index.qual.LTLengthOf;
+import org.checkerframework.checker.index.qual.LessThan;
+import org.checkerframework.checker.index.qual.NonNegative;
+import org.checkerframework.checker.index.qual.Positive;
+import org.checkerframework.common.value.qual.IntRange;
+import org.checkerframework.common.value.qual.MinLen;
 
 
 /**

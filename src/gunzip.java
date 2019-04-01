@@ -6,16 +6,22 @@
  * https://github.com/nayuki/DEFLATE-library-Java
  */
 
-import io.nayuki.deflate.InflaterInputStream;
-import io.nayuki.deflate.MarkableFileInputStream;
-import org.checkerframework.checker.index.qual.IndexOrHigh;
-import org.checkerframework.checker.index.qual.NonNegative;
-
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.zip.CRC32;
+import io.nayuki.deflate.InflaterInputStream;
+import io.nayuki.deflate.MarkableFileInputStream;
 
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.NonNegative;
 
 /**
  * Decompression application for the gzip file format.

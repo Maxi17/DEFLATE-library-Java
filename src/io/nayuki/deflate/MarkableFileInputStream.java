@@ -8,11 +8,15 @@
 
 package io.nayuki.deflate;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
+
 import org.checkerframework.checker.index.qual.GTENegativeOne;
 import org.checkerframework.checker.index.qual.IndexOrHigh;
 import org.checkerframework.checker.index.qual.LTEqLengthOf;
-
-import java.io.*;
 
 
 public final class MarkableFileInputStream extends InputStream {
