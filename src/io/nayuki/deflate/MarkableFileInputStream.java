@@ -8,15 +8,11 @@
 
 package io.nayuki.deflate;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
-
 import org.checkerframework.checker.index.qual.GTENegativeOne;
 import org.checkerframework.checker.index.qual.IndexOrHigh;
 import org.checkerframework.checker.index.qual.LTEqLengthOf;
+
+import java.io.*;
 
 
 public final class MarkableFileInputStream extends InputStream {
@@ -57,10 +53,10 @@ public final class MarkableFileInputStream extends InputStream {
 		return true;
 	}
 	
-	@SuppressWarnings("cast") //The call is safe, as the return type of getFilePointer is always -1 or higher.
+	@SuppressWarnings("index")
 	public void mark(@GTENegativeOne int readLimit) {
 		try {
-			markPosition = (@GTENegativeOne int) raf.getFilePointer(); // A cast to make sure that the pointer is valid
+			markPosition = raf.getFilePointer();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

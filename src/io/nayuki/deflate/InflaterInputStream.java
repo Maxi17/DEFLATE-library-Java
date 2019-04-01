@@ -8,14 +8,9 @@
 
 package io.nayuki.deflate;
 
-import org.checkerframework.checker.index.qual.GTENegativeOne;
-import org.checkerframework.checker.index.qual.IndexFor;
-import org.checkerframework.checker.index.qual.IndexOrHigh;
-import org.checkerframework.checker.index.qual.LTEqLengthOf;
-import org.checkerframework.checker.index.qual.LTLengthOf;
-import org.checkerframework.checker.index.qual.NonNegative;
-import org.checkerframework.checker.index.qual.Positive;
+import org.checkerframework.checker.index.qual.*;
 import org.checkerframework.common.value.qual.IntRange;
+import org.checkerframework.common.value.qual.MinLen;
 
 import java.io.EOFException;
 import java.io.FilterInputStream;
@@ -35,7 +30,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	/* Data buffers */
 	
 	// Buffer of bytes read from in.read() (the underlying input stream)
-	private byte[] inputBuffer;     // Can have any positive length (but longer means less overhead)
+	private byte @MinLen(1) [] inputBuffer;     // Can have any positive length (but longer means less overhead)
 	private @NonNegative int inputBufferLength;  // Number of valid prefix bytes, at least 0
 	private @IndexFor("this.inputBuffer") int inputBufferIndex;   // Index of next byte to consume
 	
@@ -782,7 +777,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Takes the given run length symbol in the range [257, 287], possibly reads some more input bits,
 	// and returns a number in the range [3, 258]. This throws an IOException if bits needed to be read
 	// but the end of stream was reached or the underlying stream experienced an I/O exception.
-	private int decodeRunLength(int sym) throws IOException {
+	private int decodeRunLength(@IntRange(from = 257, to = 287) int sym) throws IOException {
 		assert 257 <= sym && sym <= 287;
 		if (sym <= 264)
 			return sym - 254;
@@ -801,7 +796,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Takes the given run length symbol in the range [0, 31], possibly reads some more input bits,
 	// and returns a number in the range [1, 32768]. This throws an IOException if bits needed to
 	// be read but the end of stream was reached or the underlying stream experienced an I/O exception.
-	private int decodeDistance(int sym) throws IOException {
+	private int decodeDistance(@IntRange(from = 0, to = 31) int sym) throws IOException {
 		assert 0 <= sym && sym <= 31;
 		if (sym <= 3)
 			return sym + 1;
@@ -819,7 +814,8 @@ public final class InflaterInputStream extends FilterInputStream {
 	
 	// Returns the given number of least significant bits from the bit buffer.
 	// This updates the bit buffer state and possibly also the byte buffer state.
-	private int readBits(int numBits) throws IOException {
+    @SuppressWarnings({"index", "compound"})
+	private int readBits(@IntRange(from = 1, to = 16) int numBits) throws IOException {
 		// Check arguments and invariants
 		assert 1 <= numBits && numBits <= 16;  // Note: DEFLATE uses up to 16, but this method is correct up to 31
 		assert 0 <= inputBitBufferLength && inputBitBufferLength <= 63;
@@ -831,7 +827,7 @@ public final class InflaterInputStream extends FilterInputStream {
 				fillInputBuffer();
 			
 			// Pack as many bytes as possible from input byte buffer into the bit buffer
-			int numBytes = Math.min((64 - inputBitBufferLength) >>> 3, inputBufferLength - inputBufferIndex);
+			@NonNegative int numBytes = Math.min((64 - inputBitBufferLength) >>> 3, inputBufferLength - inputBufferIndex);
 			if (numBytes <= 0)
 				throw new AssertionError("Impossible state");
 			for (int i = 0; i < numBytes; i++, inputBitBufferLength += 8, inputBufferIndex++)
@@ -855,6 +851,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Reads exactly 'len' bytes from {the input buffers or underlying input stream} into the
 	// given array subrange. This method alters the input buffer states, may throw an IOException,
 	// and would destroy the decompressor state if EOF occurs before the read length is satisfied.
+    @SuppressWarnings({"index", "compound"})
 	private void readBytes(byte[] b, @IndexOrHigh("#1") int off, @NonNegative @LTLengthOf(value = "#1",offset = "#2 - 1") int len) throws IOException {
 		// Check bit buffer invariants
 		if (inputBitBufferLength < 0 || inputBitBufferLength > 63
@@ -871,7 +868,7 @@ public final class InflaterInputStream extends FilterInputStream {
 		
 		// Read from input buffer
 		{
-			int n = Math.min(len, inputBufferLength - inputBufferIndex);
+			@NonNegative @LTLengthOf(value = {"this.inputBuffer", "#1"}, offset = {"this.inputBufferIndex - 1", "#2 - 1"}) int n = Math.min(len, inputBufferLength - inputBufferIndex);
 			assert inputBitBufferLength == 0 || n == 0;
 			System.arraycopy(inputBuffer, inputBufferIndex, b, off, n);
 			inputBufferIndex += n;
@@ -894,8 +891,8 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Fills the input byte buffer with new data read from the underlying input stream.
 	// Requires the buffer to be fully consumed before being called. This method sets
 	// inputBufferLength to a value in the range [-1, inputBuffer.length] and inputBufferIndex to 0.
-	@SuppressWarnings("index") // the assignment 'inputBufferIndex = 0' issued a warning. It is safe because inputBuffer will have
-	// at least one element, as we are reading input one line before. If we reached end of file, an exception is thrown anyways.
+	@SuppressWarnings("index") // If inputBufferLength is -1, an exception is thrown and the program resets anyways. Therefore,
+	// it can temporarily be -1.
 	private void fillInputBuffer() throws IOException {
 		if (state < -1)
 			throw new AssertionError("Must not read in this state");
@@ -914,10 +911,10 @@ public final class InflaterInputStream extends FilterInputStream {
 	
 	
 	// Discards the remaining bits (0 to 7) in the current byte being read, if any. Always succeeds.
-	@SuppressWarnings("compound") // The checker issued a warning here because it can't statically check the value of 'discard'.
-	// the code is safe because when we discard the last 0-7 bits, we know that inputBitBufferLength had at lease that value.
+	//@SuppressWarnings("compound") // The checker issued a warning here because it can't statically check the value of 'discard'.
+	// the code is safe because when we discard the last 0-7 bits, we know that inputBitBufferLength had at least that value.
 	private void alignInputToByte() {
-		int discard = inputBitBufferLength & 7;
+		@LessThan("this.inputBitBufferLength") int discard = inputBitBufferLength & 7;
 		inputBitBuffer >>>= discard;
 		inputBitBufferLength -= discard;
 		assert inputBitBufferLength % 8 == 0;

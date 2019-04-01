@@ -6,24 +6,15 @@
  * https://github.com/nayuki/DEFLATE-library-Java
  */
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import io.nayuki.deflate.InflaterInputStream;
+import io.nayuki.deflate.MarkableFileInputStream;
+import org.checkerframework.checker.index.qual.IndexOrHigh;
+import org.checkerframework.checker.index.qual.NonNegative;
+
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.zip.CRC32;
-import io.nayuki.deflate.InflaterInputStream;
-import io.nayuki.deflate.MarkableFileInputStream;
-
-import org.checkerframework.checker.index.qual.GTENegativeOne;
-import org.checkerframework.checker.index.qual.IndexOrHigh;
-import org.checkerframework.checker.index.qual.LTEqLengthOf;
-import org.checkerframework.checker.index.qual.NonNegative;
 
 
 /**
@@ -116,7 +107,7 @@ public final class gunzip {
 					System.err.println("Flag: Text");
 				if ((flags & 0x04) != 0) {
 					System.err.println("Flag: Extra");
-					@NonNegative int len = readLittleEndianUint16(din);
+					int len = readLittleEndianUint16(din);
 					din.readFully(new byte[len]);  // Skip extra data
 				}
 				if ((flags & 0x08) != 0)
@@ -139,9 +130,7 @@ public final class gunzip {
 				byte[] buf = new byte[64 * 1024];
 				long startTime = System.nanoTime();
 				while (true) {
-					@GTENegativeOne @LTEqLengthOf("buf") int n = iin.read(buf);
-					// n should be within buf range because we use it to access te array. It can also be -1, end of file
-					// or equal to the length of buf, as write method called below wouldn't cause  crash
+					int n = iin.read(buf);
 					if (n == -1)
 						break;
 					lcout.write(buf, 0, n);

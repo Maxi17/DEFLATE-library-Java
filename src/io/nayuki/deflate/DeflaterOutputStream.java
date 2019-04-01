@@ -8,18 +8,14 @@
 
 package io.nayuki.deflate;
 
+import org.checkerframework.checker.index.qual.*;
+import org.checkerframework.common.value.qual.IntRange;
+import org.checkerframework.common.value.qual.MinLen;
+
 import java.io.BufferedOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-import org.checkerframework.checker.index.qual.IndexFor;
-import org.checkerframework.checker.index.qual.IndexOrHigh;
-import org.checkerframework.checker.index.qual.LTEqLengthOf;
-import org.checkerframework.checker.index.qual.LTLengthOf;
-import org.checkerframework.checker.index.qual.NonNegative;
-import org.checkerframework.common.value.qual.IntRange;
-import org.checkerframework.common.value.qual.MinLen;
 
 
 /**
@@ -59,7 +55,7 @@ public final class DeflaterOutputStream extends FilterOutputStream {
 		index = (@IntRange(from = 5) @LTEqLengthOf("this.buffer") int) (index + 1); // Explained above why this is safe
 	}
 
-	@SuppressWarnings("cast") // There are three casts in this method. I have explained each one below.
+	@SuppressWarnings("cast") // There are two casts in this method. I have explained each one below.
 	public void write(byte[] b, @IndexOrHigh("#1") int off, @IndexOrHigh("#1") int len) throws IOException {
 		// The offset and the length have to be within the bounds of array b, and can be equal to the size of the array
 		// because the exception is thrown only when they exceed this limit. Otherwise, the method works as expected.
