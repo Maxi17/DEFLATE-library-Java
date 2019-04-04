@@ -56,8 +56,9 @@ public final class MarkableFileInputStream extends InputStream {
 	public boolean markSupported() {
 		return true;
 	}
-	
-	@SuppressWarnings("index")
+
+	@SuppressWarnings("index") // getFilePointer() is a native method and the implementation of it is not accessible
+	// Assuming it returns a valid pointer position starting from the beginning of the file, it should be greater than -1.
 	public void mark(@GTENegativeOne int readLimit) {
 		try {
 			markPosition = raf.getFilePointer();

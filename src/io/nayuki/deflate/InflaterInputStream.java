@@ -667,9 +667,14 @@ public final class InflaterInputStream extends FilterInputStream {
 	 * because the root is located at index 0 and the other internal node is
 	 * located at index 2.
 	 */
-	private static short[] codeLengthsToCodeTree(byte[] codeLengths) throws DataFormatException {
+	@SuppressWarnings("index")
+	// I explained each warning below
+	private static short[] codeLengthsToCodeTree(byte @MinLen(2) [] codeLengths) throws DataFormatException {
+		// 'codeLengths' should be of length at least 2 to make sure 'result' array does have elements at indexes 0 and 1.
 		// Allocate array for the worst case if all symbols are present
-		short[] result = new short[(codeLengths.length - 1) * 2];
+		// The checker issued a warning below because (codeLengths.length - 1) * 2 can be 0 or 1. In practice, this is not
+		// possible, unless an overflow occurs. IndexChecker is not optimized for overflow detection.
+		short @MinLen(2) [] result = new short[(codeLengths.length - 1) * 2];
 		Arrays.fill(result, CODE_TREE_UNUSED_SLOT);
 		result[0] = CODE_TREE_OPEN_SLOT;
 		result[1] = CODE_TREE_OPEN_SLOT;
@@ -688,7 +693,8 @@ public final class InflaterInputStream extends FilterInputStream {
 			// Loop invariant: Each OPEN child slot in the result array has depth curCodeLen
 			
 			// Allocate all symbols of current code length to open slots in ascending order
-			int resultIndex = 0;
+			// There was an error here, but the code is safe because 'result' has at least 2 elements.
+			@IndexFor("result") int resultIndex = 0;
 			for (int symbol = 0; ; ) {
 				// Find next symbol having current code length
 				while (symbol < codeLengths.length && codeLengths[symbol] != curCodeLen)
@@ -698,22 +704,24 @@ public final class InflaterInputStream extends FilterInputStream {
 				
 				// Find next open child slot
 				while (resultIndex < allocated && result[resultIndex] != CODE_TREE_OPEN_SLOT)
-					resultIndex++;
+					resultIndex++; // It stays within bounds
 				if (resultIndex == allocated)  // No more slots left
 					throw new DataFormatException("Canonical code fails to produce full Huffman code tree");
 				
 				// Put the symbol into the slot and increment
 				result[resultIndex] = (short)~symbol;
-				resultIndex++;
+				resultIndex++; // It stays within bounds
 				symbol++;
 			}
 			
 			// Take all open slots and deepen them by one level
-			for (int end = allocated; resultIndex < end; resultIndex++) {
+			for (int end = allocated; resultIndex < end; resultIndex++) { // 'resultIndex' stays within bounds
 				if (result[resultIndex] == CODE_TREE_OPEN_SLOT) {
 					// Allocate a new node
 					assert allocated + 2 <= result.length;
 					result[resultIndex] = (short)allocated;
+					// The two lines below issued an error each. They are false positives because we already checked before
+					// that 'allocated + 2' <= result.length'
 					result[allocated + 0] = CODE_TREE_OPEN_SLOT;
 					result[allocated + 1] = CODE_TREE_OPEN_SLOT;
 					allocated += 2;
@@ -722,6 +730,7 @@ public final class InflaterInputStream extends FilterInputStream {
 		}
 		
 		// Check for unused open slots after all symbols are allocated
+		// allocated is smaller than result.length, as this is where the previous for loop stopped.
 		for (int i = 0; i < allocated; i++) {
 			if (result[i] == CODE_TREE_OPEN_SLOT)
 				throw new DataFormatException("Canonical code fails to produce full Huffman code tree");
@@ -918,10 +927,10 @@ public final class InflaterInputStream extends FilterInputStream {
 	
 	
 	// Discards the remaining bits (0 to 7) in the current byte being read, if any. Always succeeds.
-	//@SuppressWarnings("compound") // The checker issued a warning here because it can't statically check the value of 'discard'.
-	// the code is safe because when we discard the last 0-7 bits, we know that inputBitBufferLength had at least that value.
+	@SuppressWarnings("compound") // Even though the checker knows 'discard' is less than or equal to 'inputBitBufferLength',
+	// the subtracting it from 'inputBitBufferLength' issued an error.
 	private void alignInputToByte() {
-		@LessThan("this.inputBitBufferLength") int discard = inputBitBufferLength & 7;
+		@LessThan("this.inputBitBufferLength + 1") int discard = inputBitBufferLength & 7;
 		inputBitBuffer >>>= discard;
 		inputBitBufferLength -= discard;
 		assert inputBitBufferLength % 8 == 0;
@@ -1004,7 +1013,7 @@ public final class InflaterInputStream extends FilterInputStream {
 		FIXED_DISTANCE_CODE_TABLE = codeTreeToCodeTable(FIXED_DISTANCE_CODE_TREE);
 	}
 	
-	
+
 	// Must be a power of 2. Do not change this constant value. If the value is decreased, then
 	// decompression may produce different data that violates the DEFLATE spec (but no crashes).
 	// If the value is increased, the behavior stays the same but memory is wasted with no benefit.
