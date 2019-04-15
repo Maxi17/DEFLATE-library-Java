@@ -667,7 +667,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	 * because the root is located at index 0 and the other internal node is
 	 * located at index 2.
 	 */
-	@SuppressWarnings("index")
+	@SuppressWarnings({"index","assignment"})
 	// I explained each warning below
 	private static short[] codeLengthsToCodeTree(byte @MinLen(2) [] codeLengths) throws DataFormatException {
 		// 'codeLengths' should be of length at least 2 to make sure 'result' array does have elements at indexes 0 and 1.
@@ -776,7 +776,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Reads bits from the input buffers/stream and uses the given code tree to decode the next symbol.
 	// The returned symbol value is a non-negative integer. This throws an IOException if the end of stream
 	// is reached before a symbol is decoded, or if the underlying stream experiences an I/O exception.
-	private int decodeSymbol(short[] codeTree) throws IOException {
+	private @IntRange(from = 0, to = 31) int decodeSymbol(short[] codeTree) throws IOException {
 		int node = 0;  // An index into the codeTree array which signifies the current tree node
 		while (node >= 0) {
 			if (inputBitBufferLength > 0) {  // Medium path using buffered bits
@@ -793,7 +793,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Takes the given run length symbol in the range [257, 287], possibly reads some more input bits,
 	// and returns a number in the range [3, 258]. This throws an IOException if bits needed to be read
 	// but the end of stream was reached or the underlying stream experienced an I/O exception.
-	private int decodeRunLength(@IntRange(from = 257, to = 287) int sym) throws IOException {
+	private @IntRange(from = 3, to = 258) int decodeRunLength(@IntRange(from = 257, to = 287) int sym) throws IOException {
 		assert 257 <= sym && sym <= 287;
 		if (sym <= 264)
 			return sym - 254;
@@ -812,7 +812,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Takes the given run length symbol in the range [0, 31], possibly reads some more input bits,
 	// and returns a number in the range [1, 32768]. This throws an IOException if bits needed to
 	// be read but the end of stream was reached or the underlying stream experienced an I/O exception.
-	private int decodeDistance(@IntRange(from = 0, to = 31) int sym) throws IOException {
+	private @IntRange(from = 1, to = 32768) int decodeDistance(@IntRange(from = 0, to = 31) int sym) throws IOException {
 		assert 0 <= sym && sym <= 31;
 		if (sym <= 3)
 			return sym + 1;
@@ -831,7 +831,7 @@ public final class InflaterInputStream extends FilterInputStream {
 	// Returns the given number of least significant bits from the bit buffer.
 	// This updates the bit buffer state and possibly also the byte buffer state.
     @SuppressWarnings({"index", "compound"})
-	private int readBits(@IntRange(from = 1, to = 16) int numBits) throws IOException {
+	private @NonNegative int readBits(@IntRange(from = 1, to = 16) int numBits) throws IOException {
 		// Check arguments and invariants
 		assert 1 <= numBits && numBits <= 16;  // Note: DEFLATE uses up to 16, but this method is correct up to 31
 		assert 0 <= inputBitBufferLength && inputBitBufferLength <= 63;
